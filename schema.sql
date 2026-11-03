@@ -18,14 +18,37 @@ CREATE TABLE IF NOT EXISTS perguntas (
 -- Tabela de partidas
 CREATE TABLE IF NOT EXISTS partidas (
     id                  BIGSERIAL   PRIMARY KEY,
-    jogo_id             UUID        NOT NULL UNIQUE,   -- UUID gerado pelo cliente (anti-duplicação)
+    jogo_id             UUID        NOT NULL UNIQUE,
     apelido             TEXT        NOT NULL,
     valor_ganho         BIGINT      NOT NULL DEFAULT 0,
     tempo_segundos      NUMERIC(10,3) NOT NULL,
     acertos             INT         NOT NULL DEFAULT 0,
-    motivo_encerramento TEXT        NOT NULL,          -- 'acerto_total' | 'erro' | 'desistencia'
+    motivo_encerramento TEXT        NOT NULL,
     criado_em           TIMESTAMPTZ DEFAULT now()
 );
+
+-- =============================================================
+--  ROW LEVEL SECURITY (RLS) — OBRIGATÓRIO para acesso público
+-- =============================================================
+
+-- Ativa RLS nas tabelas
+ALTER TABLE perguntas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE partidas  ENABLE ROW LEVEL SECURITY;
+
+-- Permite que qualquer pessoa LEIA as perguntas
+CREATE POLICY "perguntas_leitura_publica"
+  ON perguntas FOR SELECT
+  USING (true);
+
+-- Permite que qualquer pessoa INSIRA uma partida
+CREATE POLICY "partidas_insercao_publica"
+  ON partidas FOR INSERT
+  WITH CHECK (true);
+
+-- Permite que qualquer pessoa LEIA o ranking
+CREATE POLICY "partidas_leitura_publica"
+  ON partidas FOR SELECT
+  USING (true);
 
 -- -----------------------------------------------------------------
 -- Dados de exemplo (mínimo de 3 por dificuldade para rodar o jogo)

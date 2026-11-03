@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Show do Milhão</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ░░░░░░ PARTÍCULAS DE FUNDO ░░░░░░ -->
+  <canvas id="particles-canvas"></canvas>
+
+  <!-- ░░░░░░ SPOTLIGHT CURSOR ░░░░░░ -->
+  <div id="spotlight"></div>
+
+  <!-- ════════════════════════════════════════════
+       TELA 1 — MENU PRINCIPAL
+  ════════════════════════════════════════════ -->
+  <section id="screen-menu" class="screen active">
+    <div class="menu-wrapper">
+      <div class="logo-area">
+        <div class="logo-icon">💰</div>
+        <h1 class="logo-title">Show do Milhão</h1>
+        <p class="logo-sub">Teste seu conhecimento. Ganhe R$ 1.000.000!</p>
+      </div>
+
+      <div class="menu-buttons">
+        <button class="btn btn-primary" id="btn-jogar">
+          <span class="btn-icon">🎮</span> Iniciar Partida
+        </button>
+        <button class="btn btn-secondary" id="btn-ranking">
+          <span class="btn-icon">🏆</span> Ver Ranking
+        </button>
+      </div>
+
+      <div class="prize-ladder-preview">
+        <div class="plp-item gold">R$ 1.000.000</div>
+        <div class="plp-item silver">R$ 500.000</div>
+        <div class="plp-item bronze">R$ 200.000</div>
+        <div class="plp-dots">• • •</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       TELA 2 — APELIDO
+  ════════════════════════════════════════════ -->
+  <section id="screen-apelido" class="screen">
+    <div class="card apelido-card">
+      <div class="card-icon">🎯</div>
+      <h2>Qual é o seu apelido?</h2>
+      <p class="card-sub">Seu nome aparecerá no ranking global</p>
+      <div class="input-wrapper">
+        <input
+          type="text"
+          id="input-apelido"
+          class="text-input"
+          placeholder="Digite seu apelido..."
+          maxlength="20"
+          autocomplete="off"
+        />
+        <span class="input-counter" id="apelido-counter">0/20</span>
+      </div>
+      <p class="error-msg hidden" id="apelido-error">⚠ O apelido não pode ser vazio!</p>
+      <div class="card-buttons">
+        <button class="btn btn-ghost" id="btn-back-menu">← Voltar</button>
+        <button class="btn btn-primary" id="btn-confirmar-apelido">Jogar →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       TELA 3 — JOGO
+  ════════════════════════════════════════════ -->
+  <section id="screen-game" class="screen">
+    <div class="game-layout">
+
+      <!-- LATERAL ESQUERDA: escada de prêmios -->
+      <aside class="prize-ladder" id="prize-ladder">
+        <!-- gerado por JS -->
+      </aside>
+
+      <!-- CENTRO: pergunta + alternativas -->
+      <main class="game-center">
+
+        <!-- barra de progresso / timer -->
+        <div class="game-header">
+          <div class="progress-area">
+            <span id="progress-label">Pergunta <span id="q-num">1</span> de 9</span>
+            <span id="difficulty-badge" class="badge">Fácil</span>
+          </div>
+          <div class="timer-area">
+            <div class="timer-ring">
+              <svg viewBox="0 0 60 60">
+                <circle class="ring-bg" cx="30" cy="30" r="26"/>
+                <circle class="ring-progress" id="ring-circle" cx="30" cy="30" r="26"/>
+              </svg>
+              <span id="timer-value">30</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="question-box" id="question-box">
+          <p id="question-text">Carregando pergunta...</p>
+        </div>
+
+        <div class="alternatives-grid" id="alternatives-grid">
+          <!-- gerado por JS -->
+        </div>
+
+        <div class="game-actions">
+          <button class="btn btn-danger" id="btn-desistir">🚩 Desistir</button>
+        </div>
+
+      </main>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       TELA 4 — RESULTADO
+  ════════════════════════════════════════════ -->
+  <section id="screen-result" class="screen">
+    <div class="card result-card">
+      <div id="result-icon" class="result-icon">🏆</div>
+      <h2 id="result-title">Parabéns!</h2>
+      <p id="result-subtitle" class="card-sub">Você foi incrível!</p>
+
+      <div class="result-stats">
+        <div class="stat-box">
+          <span class="stat-label">Prêmio</span>
+          <span class="stat-value gold" id="result-prize">R$ 0</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Acertos</span>
+          <span class="stat-value" id="result-acertos">0/9</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Tempo</span>
+          <span class="stat-value" id="result-time">0s</span>
+        </div>
+      </div>
+
+      <div id="save-status" class="save-status">
+        <span class="spinner"></span> Salvando resultado...
+      </div>
+
+      <div class="card-buttons" style="margin-top:2rem">
+        <button class="btn btn-secondary" id="btn-result-ranking">🏆 Ranking</button>
+        <button class="btn btn-primary" id="btn-jogar-novamente">🔄 Jogar Novamente</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       TELA 5 — RANKING
+  ════════════════════════════════════════════ -->
+  <section id="screen-ranking" class="screen">
+    <div class="ranking-wrapper">
+      <div class="ranking-header">
+        <h2>🏆 Hall da Fama</h2>
+        <p>Os maiores campeões do Show do Milhão</p>
+      </div>
+
+      <div id="ranking-list" class="ranking-list">
+        <!-- gerado por JS -->
+      </div>
+
+      <button class="btn btn-ghost" id="btn-back-ranking" style="margin-top:2rem">
+        ← Voltar ao Menu
+      </button>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       MODAL — CONFIRMAÇÃO DESISTÊNCIA
+  ════════════════════════════════════════════ -->
+  <div id="modal-desistir" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-icon">🚩</div>
+      <h3>Deseja desistir?</h3>
+      <p>Você vai garantir <strong id="modal-prize-value">R$ 0</strong> e encerrar a partida.</p>
+      <div class="modal-buttons">
+        <button class="btn btn-ghost" id="btn-modal-cancel">Continuar jogando</button>
+        <button class="btn btn-danger" id="btn-modal-confirm">Sim, desistir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       MODAL — TOAST / NOTIFICAÇÕES
+  ════════════════════════════════════════════ -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- ════════════════════════════════════════════
+       SUPABASE SDK (via CDN)
+  ════════════════════════════════════════════ -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

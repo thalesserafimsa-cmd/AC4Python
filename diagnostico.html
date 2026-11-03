@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Diagnóstico — Show do Milhão</title>
+  <style>
+    body { background:#050a1a; color:#e8eaf6; font-family:monospace; padding:2rem; max-width:700px; margin:0 auto; }
+    h1   { color:#ffd700; margin-bottom:2rem; }
+    .step { background:rgba(255,255,255,.05); border:1px solid #333; border-radius:10px; padding:1rem 1.5rem; margin-bottom:1rem; }
+    .step h3 { margin:0 0 .5rem; font-size:1rem; }
+    .ok   { color:#00e676; }
+    .err  { color:#ff3d71; }
+    .wait { color:#ff9100; }
+    code  { background:#0a1428; padding:.15rem .4rem; border-radius:4px; color:#ffd700; font-size:.85rem; }
+    .msg  { margin-top:.5rem; font-size:.85rem; color:#aaa; line-height:1.6; }
+    button { background:#ffd700; color:#0a1428; border:none; border-radius:8px; padding:.7rem 1.5rem; font-weight:700; cursor:pointer; font-size:1rem; margin-top:1.5rem; }
+    pre { background:#0a1428; padding:1rem; border-radius:8px; font-size:.78rem; overflow-x:auto; white-space:pre-wrap; word-break:break-all; color:#69f0ae; margin-top:.5rem; }
+  </style>
+</head>
+<body>
+<h1>🔍 Diagnóstico do Jogo</h1>
+<div id="steps"></div>
+<button onclick="rodarDiagnostico()">▶ Rodar diagnóstico novamente</button>
+
+<!-- Supabase CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+const steps = document.getElementById('steps');
+
+function addStep(titulo, status, detalhe) {
+  const emoji = status === 'ok' ? '✅' : status === 'err' ? '❌' : '⏳';
+  const cls   = status === 'ok' ? 'ok' : status === 'err' ? 'err' : 'wait';
+  const div = document.createElement('div');
+  div.className = 'step';
+  div.innerHTML = `
+    <h3><span class="${cls}">${emoji}</span> ${titulo}</h3>
+    ${detalhe ? `<div class="msg">${detalhe}</div>` : ''}
+  `;
+  steps.appendChild(div);
+  return div;
+}
+
+async function rodarDiagnostico() {
+  steps.innerHTML = '';
+
+  // ── PASSO 1: SDK carregou? ─────────────────────────────
+  if (typeof window.supabase === 'undefined') {
+    addStep('SDK do Supabase carregou?', 'err',
+      '⚠ <code>window.supabase</code> não encontrado.<br>' +
+      'O arquivo HTML precisa de internet para carregar o CDN.<br>' +
+      'Verifique sua conexão e recarregue a página.');
+    return;
+  }
+  addStep('SDK do Supabase carregou?', 'ok', 'Biblioteca carregada via CDN ✔');
+
+  // ── PASSO 2: config.js tem valores? ───────────────────
+  const urlOk  = typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL.includes('.supabase.co');
+  const keyOk  = typeof SUPABASE_KEY !== 'undefined' && SUPABASE_KEY.length > 10;
+
+  if (!urlOk || !keyOk) {
+    addStep('Credenciais no config.js', 'err',
+      `URL: <code>${typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : 'NÃO DEFINIDA'}</code><br>` +
+      `KEY: <code>${typeof SUPABASE_KEY !== 'undefined' ? SUPABASE_KEY.substring(0,20)+'...' : 'NÃO DEFINIDA'}</code><br>` +
+      '⚠ Verifique o arquivo <code>config.js</code>');
+    return;
+  }
+  addStep('Credenciais no config.js', 'ok',
+    `URL: <code>${SUPABASE_URL}</code><br>KEY: <code>${SUPABASE_KEY.substring(0,24)}...</code>`);
+
+  // ── PASSO 3: createClient funciona? ───────────────────
+  let db;
+  try {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    addStep('createClient() executou sem erros', 'ok');
+  } catch(e) {
+    addStep('createClient() executou sem erros', 'err',
+      'Erro ao criar cliente: <code>' + e.message + '</code>');
+    return;
+  }
+
+  // ── PASSO 4: Tabela "perguntas" existe? ────────────────
+  try {
+    const { data, error } = await db.from('perguntas').select('count').limit(1);
+    if (error) throw error;
+    addStep('Tabela <code>perguntas</code> existe no banco?', 'ok',
+      'Conexão com o Supabase OK ✔');
+  } catch(e) {
+    addStep('Tabela <code>perguntas</code> existe no banco?', 'err',
+      `Erro: <code>${e.message}</code><br><br>` +
+      '👉 Você precisa rodar o arquivo <code>schema.sql</code> no <strong>SQL Editor</strong> do Supabase.<br>' +
+      '<a href="https://supabase.com/dashboard" target="_blank" style="color:#ffd700">Abrir Supabase →</a>');
+    return;
+  }
+
+  // ── PASSO 5: Há perguntas cadastradas? ─────────────────
+  try {
+    const { data: facil, error: e1 } = await db.from('perguntas').select('id').eq('dificuldade','Fácil');
+    const { data: media, error: e2 } = await db.from('perguntas').select('id').eq('dificuldade','Média');
+    const { data: dific, error: e3 } = await db.from('perguntas').select('id').eq('dificuldade','Difícil');
+    if (e1 || e2 || e3) throw (e1 || e2 || e3);
+
+    const qtdF = facil?.length ?? 0;
+    const qtdM = media?.length ?? 0;
+    const qtdD = dific?.length ?? 0;
+    const suficiente = qtdF >= 3 && qtdM >= 3 && qtdD >= 3;
+
+    addStep('Perguntas suficientes no banco?', suficiente ? 'ok' : 'err',
+      `Fácil: <code>${qtdF}/3</code> &nbsp; Média: <code>${qtdM}/3</code> &nbsp; Difícil: <code>${qtdD}/3</code><br>` +
+      (suficiente ? '✔ Há perguntas suficientes!' :
+       '⚠ Rode o <code>schema.sql</code> para inserir as perguntas de exemplo.'));
+  } catch(e) {
+    addStep('Perguntas suficientes no banco?', 'err', e.message);
+    return;
+  }
+
+  // ── PASSO 6: Tabela "partidas" existe? ─────────────────
+  try {
+    const { data, error } = await db.from('partidas').select('count').limit(1);
+    if (error) throw error;
+    addStep('Tabela <code>partidas</code> existe no banco?', 'ok', 'Tabela de ranking OK ✔');
+  } catch(e) {
+    addStep('Tabela <code>partidas</code> existe no banco?', 'err',
+      `Erro: <code>${e.message}</code><br>Rode o <code>schema.sql</code> no SQL Editor do Supabase.`);
+    return;
+  }
+
+  // ── TUDO OK ────────────────────────────────────────────
+  const final = addStep('🎉 Tudo certo! O jogo está pronto.', 'ok',
+    'Abra o <code>index.html</code> no navegador e divirta-se!');
+  final.style.borderColor = '#ffd700';
+  final.style.background  = 'rgba(255,215,0,.08)';
+}
+
+// Roda automaticamente ao carregar
+window.addEventListener('load', rodarDiagnostico);
+</script>
+</body>
+</html>
