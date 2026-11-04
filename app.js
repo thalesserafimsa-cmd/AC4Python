@@ -26,11 +26,13 @@ const MOTIVO_LABELS = {
 //  SUPABASE
 // ══════════════════════════════════════════════════════════
 
-let supabase;
+let supabaseClient = null;
 try {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  if (typeof window.supabase !== 'undefined' && typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_KEY !== 'undefined') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
 } catch (e) {
-  mostrarErroCritico('Falha ao inicializar o Supabase. Verifique o config.js.<br><small>' + e.message + '</small>');
+  console.warn('Aviso: Falha ao inicializar o Supabase:', e);
 }
 
 function mostrarErroCritico(msg) {
@@ -84,7 +86,14 @@ function formatarPremio(valor) {
 }
 
 function uuid() {
-  return crypto.randomUUID();
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 function sleep(ms) {
@@ -412,7 +421,34 @@ function finalizarPartida() {
 }
 
 // ══════════════════════════════════════════════════════════
-//  SALVAR PARTIDA NO SUPABASE
+//  PERGUNTAS DE FALLBACK (OFFLINE / MODO LOCAL)
+// ══════════════════════════════════════════════════════════
+
+const PERGUNTAS_FALLBACK = [
+  // Fácil
+  { id: '1', enunciado: 'Qual é a capital do Brasil?', alternativa_a: 'São Paulo', alternativa_b: 'Brasília', alternativa_c: 'Rio de Janeiro', alternativa_d: 'Salvador', resposta: 'B', dificuldade: 'Fácil' },
+  { id: '2', enunciado: 'Quantos lados tem um triângulo?', alternativa_a: 'Dois', alternativa_b: 'Quatro', alternativa_c: 'Três', alternativa_d: 'Cinco', resposta: 'C', dificuldade: 'Fácil' },
+  { id: '3', enunciado: 'Qual planeta é conhecido como Planeta Vermelho?', alternativa_a: 'Vênus', alternativa_b: 'Júpiter', alternativa_c: 'Saturno', alternativa_d: 'Marte', resposta: 'D', dificuldade: 'Fácil' },
+  { id: '4', enunciado: 'Quem escreveu "Dom Casmurro"?', alternativa_a: 'José de Alencar', alternativa_b: 'Machado de Assis', alternativa_c: 'Clarice Lispector', alternativa_d: 'Lima Barreto', resposta: 'B', dificuldade: 'Fácil' },
+  { id: '5', enunciado: 'Qual é o maior oceano do mundo?', alternativa_a: 'Atlântico', alternativa_b: 'Índico', alternativa_c: 'Ártico', alternativa_d: 'Pacífico', resposta: 'D', dificuldade: 'Fácil' },
+
+  // Média
+  { id: '6', enunciado: 'Em que ano o Brasil foi descoberto?', alternativa_a: '1492', alternativa_b: '1500', alternativa_c: '1498', alternativa_d: '1510', resposta: 'B', dificuldade: 'Média' },
+  { id: '7', enunciado: 'Qual é o símbolo químico do ouro?', alternativa_a: 'Ag', alternativa_b: 'Fe', alternativa_c: 'Au', alternativa_d: 'Or', resposta: 'C', dificuldade: 'Média' },
+  { id: '8', enunciado: 'Quem pintou a Mona Lisa?', alternativa_a: 'Michelangelo', alternativa_b: 'Rafael', alternativa_c: 'Caravaggio', alternativa_d: 'Leonardo da Vinci', resposta: 'D', dificuldade: 'Média' },
+  { id: '9', enunciado: 'Quantos ossos tem o corpo humano adulto?', alternativa_a: '206', alternativa_b: '213', alternativa_c: '198', alternativa_d: '220', resposta: 'A', dificuldade: 'Média' },
+  { id: '10', enunciado: 'Qual é a fórmula da água?', alternativa_a: 'CO2', alternativa_b: 'NaCl', alternativa_c: 'H2O', alternativa_d: 'O2', resposta: 'C', dificuldade: 'Média' },
+
+  // Difícil
+  { id: '11', enunciado: 'Qual é o menor país do mundo em área?', alternativa_a: 'Mônaco', alternativa_b: 'Nauru', alternativa_c: 'San Marino', alternativa_d: 'Vaticano', resposta: 'D', dificuldade: 'Difícil' },
+  { id: '12', enunciado: 'Quantos bits compõem 1 byte?', alternativa_a: '4', alternativa_b: '16', alternativa_c: '8', alternativa_d: '32', resposta: 'C', dificuldade: 'Difícil' },
+  { id: '13', enunciado: 'Quem desenvolveu a teoria da relatividade?', alternativa_a: 'Isaac Newton', alternativa_b: 'Niels Bohr', alternativa_c: 'Max Planck', alternativa_d: 'Albert Einstein', resposta: 'D', dificuldade: 'Difícil' },
+  { id: '14', enunciado: 'Qual é o número atômico do carbono?', alternativa_a: '8', alternativa_b: '6', alternativa_c: '12', alternativa_d: '4', resposta: 'B', dificuldade: 'Difícil' },
+  { id: '15', enunciado: 'Em qual continente fica o Suriname?', alternativa_a: 'África', alternativa_b: 'Ásia', alternativa_c: 'América do Norte', alternativa_d: 'América do Sul', resposta: 'D', dificuldade: 'Difícil' }
+];
+
+// ══════════════════════════════════════════════════════════
+//  SALVAR PARTIDA NO SUPABASE / LOCAL
 // ══════════════════════════════════════════════════════════
 
 async function salvarPartida(valorGanho) {
@@ -429,24 +465,26 @@ async function salvarPartida(valorGanho) {
 
   const tentarSalvar = async () => {
     try {
-      const { error } = await supabase.from('partidas').insert(dados);
+      if (!supabaseClient) throw new Error('Cliente Supabase não configurado');
+      const { error } = await supabaseClient.from('partidas').insert(dados);
       if (error) throw error;
-      saveStatus.innerHTML = '✔ Resultado salvo com sucesso!';
+      saveStatus.innerHTML = '✔ Resultado salvo no Supabase!';
       saveStatus.style.color = '#00e676';
     } catch (err) {
-      saveStatus.innerHTML = `
-        ✘ Falha ao salvar: ${err.message ?? err}
-        <br><small>jogo_id: ${state.jogoId}</small>
-        <br><button class="btn btn-ghost" id="btn-retry-save" style="margin-top:.6rem;font-size:.8rem">
-          🔄 Tentar novamente
-        </button>
-      `;
-      saveStatus.style.color = '#ff3d71';
-      document.getElementById('btn-retry-save')?.addEventListener('click', () => {
-        saveStatus.innerHTML = '<span class="spinner"></span> Tentando novamente...';
-        saveStatus.style.color = '';
-        tentarSalvar();
-      });
+      console.warn('Erro ao salvar no Supabase, salvando localmente:', err);
+      try {
+        const historico = JSON.parse(localStorage.getItem('show_milhao_partidas') || '[]');
+        historico.push({ ...dados, criado_em: new Date().toISOString() });
+        localStorage.setItem('show_milhao_partidas', JSON.stringify(historico));
+        saveStatus.innerHTML = '✔ Resultado salvo localmente!';
+        saveStatus.style.color = '#ffd700';
+      } catch (storageErr) {
+        saveStatus.innerHTML = `
+          ✘ Falha ao salvar: ${err.message ?? err}
+          <br><small>jogo_id: ${state.jogoId}</small>
+        `;
+        saveStatus.style.color = '#ff3d71';
+      }
     }
   };
 
@@ -461,49 +499,68 @@ async function carregarRanking() {
   const lista = document.getElementById('ranking-list');
   lista.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:2rem"><span class="spinner" style="display:inline-block;margin-right:.5rem"></span>Carregando...</div>';
 
-  try {
-    const { data, error } = await supabase
-      .from('partidas')
-      .select('apelido, valor_ganho, acertos, tempo_segundos, motivo_encerramento, criado_em')
-      .order('valor_ganho',    { ascending: false })
-      .order('acertos',        { ascending: false })
-      .order('tempo_segundos', { ascending: true  })
-      .limit(10);
+  let data = null;
 
-    if (error) throw error;
+  if (supabaseClient) {
+    try {
+      const res = await supabaseClient
+        .from('partidas')
+        .select('apelido, valor_ganho, acertos, tempo_segundos, motivo_encerramento, criado_em')
+        .order('valor_ganho',    { ascending: false })
+        .order('acertos',        { ascending: false })
+        .order('tempo_segundos', { ascending: true  })
+        .limit(10);
 
-    if (!data || data.length === 0) {
-      lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem">Nenhuma partida registrada ainda.<br>Seja o primeiro campeão!</p>';
-      return;
+      if (!res.error && res.data && res.data.length > 0) {
+        data = res.data;
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar ranking do Supabase:', err);
     }
-
-    lista.innerHTML = '';
-    data.forEach((rec, i) => {
-      const pos = i + 1;
-      const posClass = pos === 1 ? 'p1' : pos === 2 ? 'p2' : pos === 3 ? 'p3' : 'other';
-      const posLabel = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : `#${pos}`;
-      const data_ = rec.criado_em ? new Date(rec.criado_em).toLocaleDateString('pt-BR') : '';
-      const motivo = MOTIVO_LABELS[rec.motivo_encerramento] ?? rec.motivo_encerramento;
-
-      const item = document.createElement('div');
-      item.className = 'rank-item';
-      item.style.animationDelay = `${i * 0.06}s`;
-      item.innerHTML = `
-        <span class="rank-pos ${posClass}">${posLabel}</span>
-        <div class="rank-info">
-          <div class="rank-name">${rec.apelido}</div>
-          <div class="rank-meta">${motivo} · ${data_}</div>
-        </div>
-        <div>
-          <div class="rank-prize">${formatarPremio(rec.valor_ganho)}</div>
-          <div class="rank-hits">${rec.acertos}/9 acertos · ${parseFloat(rec.tempo_segundos).toFixed(1)}s</div>
-        </div>
-      `;
-      lista.appendChild(item);
-    });
-  } catch (err) {
-    lista.innerHTML = `<p style="text-align:center;color:var(--red);padding:2rem">✘ Erro ao carregar ranking:<br>${err.message ?? err}</p>`;
   }
+
+  // Fallback para partidas armazenadas localmente
+  if (!data || data.length === 0) {
+    try {
+      const historico = JSON.parse(localStorage.getItem('show_milhao_partidas') || '[]');
+      if (historico.length > 0) {
+        historico.sort((a, b) => b.valor_ganho - a.valor_ganho || b.acertos - a.acertos || a.tempo_segundos - b.tempo_segundos);
+        data = historico.slice(0, 10);
+      }
+    } catch (e) {
+      data = [];
+    }
+  }
+
+  if (!data || data.length === 0) {
+    lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem">Nenhuma partida registrada ainda.<br>Seja o primeiro campeão!</p>';
+    return;
+  }
+
+  lista.innerHTML = '';
+  data.forEach((rec, i) => {
+    const pos = i + 1;
+    const posClass = pos === 1 ? 'p1' : pos === 2 ? 'p2' : pos === 3 ? 'p3' : 'other';
+    const posLabel = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : `#${pos}`;
+    const data_ = rec.criado_em ? new Date(rec.criado_em).toLocaleDateString('pt-BR') : '';
+    const motivo = MOTIVO_LABELS[rec.motivo_encerramento] ?? rec.motivo_encerramento;
+
+    const item = document.createElement('div');
+    item.className = 'rank-item';
+    item.style.animationDelay = `${i * 0.06}s`;
+    item.innerHTML = `
+      <span class="rank-pos ${posClass}">${posLabel}</span>
+      <div class="rank-info">
+        <div class="rank-name">${rec.apelido}</div>
+        <div class="rank-meta">${motivo} · ${data_}</div>
+      </div>
+      <div>
+        <div class="rank-prize">${formatarPremio(rec.valor_ganho)}</div>
+        <div class="rank-hits">${rec.acertos}/9 acertos · ${parseFloat(rec.tempo_segundos).toFixed(1)}s</div>
+      </div>
+    `;
+    lista.appendChild(item);
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -511,29 +568,44 @@ async function carregarRanking() {
 // ══════════════════════════════════════════════════════════
 
 async function buscarPerguntas() {
-  const todasPerguntas = [];
+  if (supabaseClient) {
+    try {
+      const todasPerguntas = [];
 
-  for (const dif of DIFICULDADES) {
-    const { data, error } = await supabase
-      .from('perguntas')
-      .select('*')
-      .eq('dificuldade', dif);
+      for (const dif of DIFICULDADES) {
+        const { data, error } = await supabaseClient
+          .from('perguntas')
+          .select('*')
+          .eq('dificuldade', dif);
 
-    if (error) throw new Error(`Erro ao buscar perguntas (${dif}): ${error.message}`);
+        if (error) throw new Error(`Erro ao buscar perguntas (${dif}): ${error.message}`);
 
-    if (!data || data.length < QTD_POR_DIFICULDADE) {
-      throw new Error(
-        `Perguntas insuficientes para dificuldade '${dif}'. ` +
-        `Necessário: ${QTD_POR_DIFICULDADE}, disponível: ${data?.length ?? 0}.`
-      );
+        if (!data || data.length < QTD_POR_DIFICULDADE) {
+          throw new Error(
+            `Perguntas insuficientes para dificuldade '${dif}'. ` +
+            `Necessário: ${QTD_POR_DIFICULDADE}, disponível: ${data?.length ?? 0}.`
+          );
+        }
+
+        const embaralhadas = data.sort(() => Math.random() - 0.5).slice(0, QTD_POR_DIFICULDADE);
+        todasPerguntas.push(...embaralhadas);
+      }
+
+      return todasPerguntas; // 9 perguntas do Supabase
+    } catch (err) {
+      console.warn('Falha ao carregar do Supabase, usando perguntas de fallback:', err);
+      showToast('⚠️ Usando perguntas locais (banco Supabase não inicializado)', 'warning', 4000);
     }
-
-    // Embaralha e pega 3
-    const embaralhadas = data.sort(() => Math.random() - 0.5).slice(0, QTD_POR_DIFICULDADE);
-    todasPerguntas.push(...embaralhadas);
   }
 
-  return todasPerguntas; // 9 perguntas na ordem Fácil → Média → Difícil
+  // Fallback: usar perguntas padrão embutidas
+  const todasPerguntas = [];
+  for (const dif of DIFICULDADES) {
+    const doTipo = PERGUNTAS_FALLBACK.filter(p => p.dificuldade === dif);
+    const embaralhadas = [...doTipo].sort(() => Math.random() - 0.5).slice(0, QTD_POR_DIFICULDADE);
+    todasPerguntas.push(...embaralhadas);
+  }
+  return todasPerguntas;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -607,8 +679,7 @@ async function iniciarPartida() {
 //  EVENT LISTENERS
 // ══════════════════════════════════════════════════════════
 
-document.addEventListener('DOMContentLoaded', () => {
-
+function initApp() {
   /* ─── MENU ─────────────────────────────────────────── */
   document.getElementById('btn-jogar').addEventListener('click', () => {
     irPara('screen-apelido');
@@ -702,4 +773,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Tela inicial
   irPara('screen-menu');
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
